@@ -9,4 +9,6 @@ func TestNum(t *testing.T) {
 	if n1 != 1 {
 		t.Errorf("id must be unique")
 	}
+
+	main()
 }
