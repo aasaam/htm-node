@@ -4,6 +4,7 @@ import "fmt"
 
 func main() {
 	fmt.Println(num())
+	fmt.Println(num())
 }
 
 func num() int {
