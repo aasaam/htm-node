@@ -1,0 +1,38 @@
+name: build
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      -
+        name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.17
+        run: |
+          go get -u -v golang.org/x/lint/golint
+          go get -u -v golang.org/x/lint/golint
+          go mod tidy
+          go get -u -v
+          go mod download
+          golint .
+          export CI=1
+          go test -covermode=count -coverprofile=coverage.out
+          cat coverage.out | grep -v "main.go" > coverage.txt
+          TOTAL_COVERAGE_FOR_CI_F=$(go tool cover -func coverage.txt | grep total | grep -Eo '[0-9]+.[0-9]+')
+          echo "TOTAL_COVERAGE_FOR_CI_F: $TOTAL_COVERAGE_FOR_CI_F"
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o htm-node
+          tar czf htm-node${GITHUB_SHA}.tgz htm-node
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: htm-node${GITHUB_SHA}.tgz
+
