@@ -21,6 +21,7 @@ jobs:
       -
         name: Build
         run: |
+          echo ${{ github.ref }}
           go get -u -v golang.org/x/lint/golint
           go get -u -v golang.org/x/lint/golint
           go mod tidy
