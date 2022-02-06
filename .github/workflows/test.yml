@@ -1,4 +1,4 @@
-name: build
+name: test
 
 on:
   push:
@@ -17,7 +17,9 @@ jobs:
         with:
           go-version: 1.17
       -
-        name: Build
+        name: Test
+        env:
+          COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo ${{ github.ref }}
           go get -u -v golang.org/x/lint/golint
@@ -31,7 +33,5 @@ jobs:
           cat coverage.out | grep -v "main.go" > coverage.txt
           TOTAL_COVERAGE_FOR_CI_F=$(go tool cover -func coverage.txt | grep total | grep -Eo '[0-9]+.[0-9]+')
           echo "TOTAL_COVERAGE_FOR_CI_F: $TOTAL_COVERAGE_FOR_CI_F"
-      - name: Send coverage
-        env:
-          COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: goveralls -coverprofile=coverage.out -service=github
+          go get github.com/mattn/goveralls
+          goveralls -coverprofile=coverage.out -service=github
