@@ -3,7 +3,7 @@ name: build
 on:
   push:
     branches:
-      - master
+      - 'master'
 
 jobs:
   docker:
@@ -34,9 +34,16 @@ jobs:
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o htm-node
           tar czf htm-node${GITHUB_SHA}.tgz htm-node
 
-      - name: Release
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/heads/master')
-        with:
-          files: htm-node${GITHUB_SHA}.tgz
+      - name: Generate release tag
+        id: tag
+        run: |
+          echo "::set-output name=release_tag::htm-node_$(date +"%Y.%m.%d_%H_%M")"
 
+      - name: Release user firmware
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.tag.outputs.release_tag }}
+          files: |
+            htm-node${GITHUB_SHA}.tgz
