@@ -1,0 +1,28 @@
+if exists(.geoip_asn.autonomous_system_organization) && .geoip_asn.autonomous_system_organization != "" {
+  .ip_geo_autonomous_system_organization = .geoip_asn.autonomous_system_organization
+}
+
+if exists(.geoip_asn.autonomous_system_number) && is_integer(.geoip_asn.autonomous_system_number) {
+  .ip_geo_autonomous_system_number = .geoip_asn.autonomous_system_number
+}
+
+if exists(.geoip_city.country_code) && .geoip_city.country_code != "" {
+  .ip_geo_country = .geoip_city.country_code
+}
+
+if exists(.geoip_city.latitude) && .geoip_city.latitude != "" && exists(.geoip_city.longitude) && .geoip_city.longitude != "" {
+  lat, err1 = to_float(.geoip_city.latitude)
+  lon, err2 = to_float(.geoip_city.longitude)
+  if err1 == null && err2 == null {
+    .ip_geo_lat = lat
+    .ip_geo_lon = lon
+  }
+}
+
+if exists(.geoip_asn) {
+  del(.geoip_asn)
+}
+
+if exists(.geoip_city) {
+  del(.geoip_city)
+}

@@ -1,0 +1,67 @@
+# ansible
+ansible_port: 22
+ansible_user: root
+ansible_python_interpreter: /usr/bin/python3
+
+internet_access: true
+
+# password_login
+password_login: true
+
+# behind the NAT/Firewall
+internal_port: false
+internal_ip: false
+
+# infrastructure
+infrastructure_url: https://aasaam.com
+infrastructure_email: postmaster@aasaam.com
+infrastructure_tel: '+982191008212'
+infrastructure_emoji: 🚦
+infrastructure_title: aasaam HTM
+infrastructure_ns: aasaam-htm
+infrastructure_domain: localhost
+
+# organization
+organization_title: aasaam software development group
+# see: https://aasaam.github.io/brand-icons/
+organization_brand_icon: ir_aasaam
+organization_support_email: admin@aasaam.com
+organization_support_url: https://aasaam.com
+organization_support_tel: '+982191008212'
+
+# Generate secret on each deploying using following command:
+# docker run --rm --name protection-secret ghcr.io/aasaam/nginx-protection generate-secret
+config_protection_token_secret: wKiYKwph4TGcKqHp87ZQEU/bpGpsFTsIA5AGVtfJzgk=
+config_protection_client_secret: hn1bFlz9/GDH2/j12cbFPkITIysbs3uX4zOMp5rZDC8=
+
+config_asm_acme_http_host_port: http://192.168.1.212:28080
+config_init_username: aasaam
+config_http_proxy: http://192.168.1.212:3390
+
+config_dns_servers:
+  - 1.1.1.1
+  - 8.8.8.8
+  - 4.2.2.4
+
+config_fallback_dns_servers:
+  - 9.9.9.9
+  - 208.67.222.222
+
+config_node_log_level: debug
+config_management_ips:
+  - 127.0.0.1
+  - 192.168.1.212
+  - 192.168.1.213
+
+config_web_server_monitoring_user: monitoring
+config_web_server_monitoring_pass: monitoring
+
+config_ntp:
+  servers:
+    - 0.asia.pool.ntp.org
+    - 1.asia.pool.ntp.org
+  fallback_server:
+    - 2.asia.pool.ntp.org
+    - 3.asia.pool.ntp.org
+
+config_telegraf_outputs_prometheus: 9100

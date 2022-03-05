@@ -1,0 +1,47 @@
+{{ ansible_managed | comment }}
+
+HostKey /etc/ssh/ssh_host_ed25519_key
+HostKey /etc/ssh/ssh_host_rsa_key
+
+KexAlgorithms curve25519-sha256@libssh.org
+Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr
+MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,umac-128-etm@openssh.com
+
+DebianBanner no
+Banner /etc/ssh/ssh_banner
+
+ListenAddress 0.0.0.0
+AcceptEnv SSH_USER
+AllowTcpForwarding no
+AllowUsers root
+{% if password_login %}
+AuthenticationMethods publickey password
+{% else %}
+AuthenticationMethods publickey
+{% endif %}
+ChallengeResponseAuthentication yes
+ClientAliveCountMax 3
+ClientAliveInterval 600
+IgnoreRhosts yes
+LoginGraceTime 60
+LogLevel VERBOSE
+MaxStartups 2
+PrintMotd no
+PrintLastLog no
+{% if password_login %}
+PasswordAuthentication yes
+{% else %}
+PasswordAuthentication no
+{% endif %}
+PermitRootLogin yes
+PermitEmptyPasswords no
+PermitUserEnvironment yes
+{% if internal_port %}
+Port {{ internal_port }}
+{% else %}
+Port {{ ansible_port }}
+{% endif %}
+Protocol 2
+Subsystem sftp /usr/lib/openssh/sftp-server
+UsePAM yes
+X11Forwarding no

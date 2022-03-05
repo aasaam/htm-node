@@ -1,0 +1,4 @@
+{% if config_http_proxy %}
+Acquire::http::Proxy "{{ config_http_proxy }}";
+Acquire::https::Proxy "{{ config_http_proxy }}";
+{% endif %}

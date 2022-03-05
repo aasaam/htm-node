@@ -1,0 +1,88 @@
+.route = "journald"
+.ip = null
+.ip_net = null
+.ip_geo_autonomous_system_organization = null
+.ip_geo_autonomous_system_number = null
+.ip_geo_country = null
+.ip_geo_lat = null
+.ip_geo_lon = null
+.port = null
+
+.priority = del(.PRIORITY)
+.facility = del(.SYSLOG_FACILITY)
+.identifier = del(.SYSLOG_IDENTIFIER)
+.transport = del(._TRANSPORT)
+
+priority, err = parse_int(.priority)
+if err == null {
+  .priority = priority
+} else {
+  .priority = 0
+}
+
+facility, err = parse_int(.facility)
+if err == null {
+  .facility = facility
+} else {
+  .facility = 1
+}
+
+ufw_matched, err = parse_regex(.message, r'[UFW BLOCK].*SRC=(?P<ip>[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})')
+if err == null && exists(ufw_matched.ip) {
+  .route = "ufw"
+  .ip = ufw_matched.ip
+  .sport = null
+  .dport = null
+  .proto = null
+  .length = null
+
+  ufw_matched_proto = parse_regex!(.message, r'PROTO=(?P<proto>[a-zA-Z0-9]+)')
+  if err == null && exists(ufw_matched_proto.proto) {
+    .proto = ufw_matched_proto.proto
+  }
+
+  ufw_matched_port = parse_regex!(.message, r'DPT=(?P<port>[0-9]{1,5})')
+  if err == null && exists(ufw_matched_port.port) {
+    .dport = parse_int!(ufw_matched_port.port)
+  }
+
+  ufw_matched_source_port, err = parse_regex(.message, r'SPT=(?P<source_port>[0-9]{1,5})')
+  if err == null && exists(ufw_matched_source_port.source_port) {
+    .sport = parse_int!(ufw_matched_source_port.source_port)
+  }
+
+  ufw_matched_length, err = parse_regex(.message, r'LEN=(?P<length>[0-9]+)')
+  if err == null && exists(ufw_matched_length.length) {
+    .length = parse_int!(ufw_matched_length.length)
+  }
+}
+
+if .ip == null {
+  from_ip_port_match, err = parse_regex(.message, r'from (?P<ip>[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}) port (?P<port>[0-9]{1,5})')
+  if err == null && exists(from_ip_port_match.ip) {
+    .ip = from_ip_port_match.ip
+    .port = parse_int!(from_ip_port_match.port)
+    .route = "ip"
+  }
+}
+
+if .ip == null {
+  ip_match_first, err = parse_regex(.message, r'(?P<ip>[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})')
+  if err == null && exists(ip_match_first.ip) {
+    .ip = ip_match_first.ip
+    .route = "ip"
+  }
+}
+
+if .ip != null {
+  .ip_net = 0
+  if ip_cidr_contains!("172.16.0.0/12", .ip) {
+    .ip_net = 172
+  } else if ip_cidr_contains!("192.168.0.0/16", .ip) {
+    .ip_net = 192
+  } else if ip_cidr_contains!("10.0.0.0/8", .ip) {
+    .ip_net = 10
+  }
+}
+
+

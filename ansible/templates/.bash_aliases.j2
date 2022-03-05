@@ -1,0 +1,7 @@
+export EDITOR=nano
+
+if [[ $EUID -ne 0 ]]; then
+  export PS1="\[\e[36m\]{{ infrastructure_ns }}\[\e[m\]:\[\e[33m\]\u@\h:\w \[\e[m\]\\$ "
+else
+  export PS1="\[\e[36m\]{{ infrastructure_ns }}\[\e[m\]:\[\e[31m\]\u@\h:\w \[\e[m\]\\$ "
+fi

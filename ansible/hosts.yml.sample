@@ -1,0 +1,12 @@
+---
+  all:
+
+    hosts:
+
+      htm-node-0:
+        # mongodb object id
+        node_id: aaaaaaaaaaaaaaaaaaaaaaaa
+        node_tls_version: intermediate
+        # pwgen -n 48
+        node_token: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        ansible_host: 192.168.1.2

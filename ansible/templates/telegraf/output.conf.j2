@@ -1,0 +1,12 @@
+{{ ansible_managed | comment }}
+
+[[outputs.prometheus_client]]
+  listen = ":{{ config_telegraf_outputs_prometheus }}"
+
+  ip_range = [
+{% for ip in config_management_ips %}
+    "{{ ip }}/32",
+{% endfor %}
+  ]
+
+  collectors_exclude = ["gocollector", "process", "go_*"]

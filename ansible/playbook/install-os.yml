@@ -1,0 +1,253 @@
+---
+- hosts: all
+  tasks:
+
+    - name: Update issue
+      template:
+        src: ../templates/issue.j2
+        dest: /etc/issue
+
+    - name: Set .bash_aliases
+      template:
+        src: ../templates/.bash_aliases.j2
+        dest: /etc/skel/.bash_aliases
+
+    - name: Create .hushlogin
+      shell: |
+        touch /etc/skel/.hushlogin
+
+    - name: Configure bash
+      shell: |
+        cp -rT /etc/skel /home/{{ config_init_username }}
+        cp -rT /etc/skel /root
+        touch /home/{{ config_init_username }}/.sudo_as_admin_successful
+        mkdir -p /home/{{ config_init_username }}/.ssh
+        chmod 0700 /home/{{ config_init_username }}/.ssh
+        chown {{ config_init_username }}:{{ config_init_username }} /home/{{ config_init_username }} -R
+        chown root:root /root -R
+        hostnamectl set-hostname {{ inventory_hostname }}
+
+    - name: Set hostname
+      template:
+        src: ../templates/hostname.j2
+        dest: /etc/hostname
+
+    - name: Set hosts
+      template:
+        src: ../templates/hosts.j2
+        dest: /etc/hosts
+
+    - name: Check initializer file for first time installation
+      stat:
+        path: /etc/ssh/.ssh_initializer
+      register: ssh_initializer
+
+    - name: Cleanup ssh server keys
+      shell: |
+        rm /etc/ssh/ssh_host* -rf
+        ssh-keygen -t ed25519 -a 100 -C "{{ inventory_hostname }}@{{ infrastructure_domain }}" -f /etc/ssh/ssh_host_ed25519_key -q -N ""
+        ssh-keygen -t rsa -b 4096 -C "{{ inventory_hostname }}@{{ infrastructure_domain }}" -f /etc/ssh/ssh_host_rsa_key -q -N ""
+        ssh-keygen -r {{ inventory_hostname }}.{{ infrastructure_domain }} -f /etc/ssh/ssh_host_ed25519_key.pub
+        ssh-keygen -r {{ inventory_hostname }}.{{ infrastructure_domain }} -f /etc/ssh/ssh_host_rsa_key
+        TZ=UTC date > /etc/ssh/.ssh_initializer
+        DEBIAN_FRONTEND=noninteractive dpkg-reconfigure --force openssh-server
+      when: ssh_initializer.stat.exists == False
+
+    - name: Set ssh banner
+      template:
+        src: ../templates/ssh/ssh_banner.j2
+        dest: /etc/ssh/ssh_banner
+
+    - name: Update sshd
+      template:
+        src: ../templates/ssh/sshd_config.j2
+        dest: /etc/ssh/sshd_config
+
+    - name: Update ssh
+      template:
+        src: ../templates/ssh/ssh_config.j2
+        dest: /etc/ssh/ssh_config
+
+    - name: Restart ssh
+      shell: |
+        systemctl restart sshd.service
+
+    - name: Update default grub
+      template:
+        src: ../templates/grub.j2
+        dest: /etc/default/grub
+
+    - name: Copy grub splash.png
+      copy:
+        src: ../files/static/grub-splash.png
+        dest: /boot/splash.png
+
+    - name: Update timesyncd
+      template:
+        src: ../templates/timesyncd.conf.j2
+        dest: /etc/systemd/timesyncd.conf
+
+    - name: Update resolved
+      template:
+        src: ../templates/resolved.conf.j2
+        dest: /etc/systemd/resolved.conf
+
+    - name: Setup time and dns of server
+      shell: |
+        timedatectl set-timezone UTC
+        systemctl daemon-reload
+        systemctl restart systemd-timesyncd.service
+        systemctl restart systemd-resolved.service
+        sleep 5
+        /usr/sbin/hwclock --systohc
+        touch /forcefsck
+
+    - name: Setup hardware clock for cron
+      cron:
+        name: "hwclock"
+        minute: "0"
+        hour: "1"
+        job: "/usr/sbin/hwclock --systohc"
+
+    - name: Set apt.conf
+      template:
+        src: ../templates/apt.conf.j2
+        dest: /etc/apt/apt.conf
+
+    - name: Upgrade packages
+      apt:
+        upgrade: yes
+        force_apt_get: yes
+        autoclean: no
+        install_recommends: no
+        update_cache: yes
+      when: internet_access == True
+
+    - name: Install base system packages
+      apt:
+        name: "{{ packages }}"
+        state: present
+        autoclean: yes
+        install_recommends: no
+        update_cache: no
+      vars:
+        packages:
+          - bash-completion
+          - docker.io
+          - fail2ban
+          - ufw
+          - htop
+          - vim
+          - nano
+          - iotop
+          - curl
+          - p7zip
+          - ca-certificates
+          - python3-distutils
+      when: internet_access == True
+
+    - name: install pip and docker-compose
+      shell: |
+        export http_proxy={{ config_http_proxy }}
+        export https_proxy={{ config_http_proxy }}
+        curl -fsSL -o- https://bootstrap.pypa.io/get-pip.py | python3
+        pip install --upgrade pip
+        pip install --upgrade docker-compose
+      when: internet_access == True
+
+    - name: install telegraf and vector
+      shell: |
+        export http_proxy={{ config_http_proxy }}
+        export https_proxy={{ config_http_proxy }}
+        curl -s https://repos.influxdata.com/influxdb.key | sudo tee /etc/apt/trusted.gpg.d/influxdb.asc > /dev/null
+        echo "deb https://repos.influxdata.com/ubuntu focal stable" | sudo tee /etc/apt/sources.list.d/influxdb.list
+        curl -1sLf 'https://repositories.timber.io/public/vector/cfg/setup/bash.deb.sh' | sudo -E bash
+        sudo apt-get update && sudo apt-get install telegraf vector -y
+      when: internet_access == True
+
+    - name: enable kernel tcp_bbr
+      shell: |
+        modprobe tcp_bbr
+
+    - name: Grub update
+      shell: |
+        update-grub2
+
+    - name: Update sysctl
+      template:
+        src: ../templates/sysctl.conf.j2
+        dest: /etc/sysctl.d/99-sysctl.conf
+
+    - name: Disable ipv6 ufw
+      lineinfile:
+        path: /etc/default/ufw
+        regexp: '^IPV6'
+        line: 'IPV6=no'
+
+    - name: Update firewall
+      template:
+        src: ../templates/firewall.sh.j2
+        dest: /usr/local/bin/firewall
+        mode: 0700
+
+    - name: Add telegraf suduers
+      template:
+        src: ../templates/telegraf/suduers.j2
+        dest: /etc/sudoers.d/01_telegraf
+        mode: 0440
+
+    - name: Set telegraf.conf
+      template:
+        src: ../templates/telegraf/telegraf.conf.j2
+        dest: /etc/telegraf/telegraf.conf
+
+    - name: Set telegraf.d/output.conf
+      template:
+        src: ../templates/telegraf/output.conf.j2
+        dest: /etc/telegraf/telegraf.d/output.conf
+
+    - name: Enable telegraf.service
+      shell: |
+        systemctl enable telegraf.service
+        systemctl restart telegraf.service
+
+    - name: Creates mmdb directory
+      file:
+        path: /var/lib/mmdb
+        recurse: true
+        state: directory
+
+    - name: Copy mmdb files
+      copy:
+        src: ../files/downloads/{{ item }}
+        dest: /var/lib/mmdb/{{ item }}
+      with_items:
+        - GeoLite2-City.mmdb
+        - GeoLite2-ASN.mmdb
+
+    - name: Set vector.toml
+      template:
+        src: ../templates/vector/vector.toml.j2
+        dest: /etc/vector/vector.toml
+
+    - name: Copy vector vrls
+      copy:
+        src: ../templates/vector/vrls
+        dest: /etc/vector/
+
+    - name: Remove old vlrs
+      shell: |
+        rm -rf /etc/vector/*.vrl
+
+    - name: Copy vector vrls
+      copy:
+        src: ../templates/vector/vrls
+        dest: /etc/vector/
+
+    - name: Enable vector.service
+      shell: |
+        systemctl enable vector.service
+        systemctl stop vector.service
+        rm -rf /tmp/vector*
+        systemctl start vector.service
+

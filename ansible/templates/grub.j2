@@ -1,0 +1,11 @@
+{{ ansible_managed | comment }}
+
+GRUB_DEFAULT=0
+GRUB_TIMEOUT_STYLE=menu
+GRUB_TIMEOUT=30
+GRUB_DISTRIBUTOR="{{ ansible_distribution }} {{ ansible_distribution_version }} - {{ inventory_hostname }} / {{ infrastructure_title }}"
+GRUB_CMDLINE_LINUX_DEFAULT="text quiet ipv6.disable=1"
+
+GRUB_BACKGROUND="/boot/splash.png"
+
+GRUB_CMDLINE_LINUX="cgroup_enable=memory swapaccount=1 consoleblank=0"

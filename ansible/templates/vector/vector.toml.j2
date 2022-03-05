@@ -1,0 +1,207 @@
+# api
+[api]
+enabled = true
+address = "127.0.0.1:8686"
+
+# log_to_metric
+[sinks.output_prometheus_exporter]
+type = "prometheus_exporter"
+inputs = [ "transform_metrics_*" ]
+address = "127.0.0.1:9101"
+default_namespace = "log_metrics"
+
+##############
+# nginx logs #
+##############
+[sources.nginx_access_log]
+  type = "socket"
+  address = "127.0.0.1:6141"
+  max_length = 102400
+  mode = "tcp"
+  [sources.nginx_access_log.decoding]
+    codec = "json"
+
+[sources.nginx_error_log]
+  type = "socket"
+  address = "127.0.0.1:6140"
+  max_length = 102400
+  mode = "tcp"
+  [sources.nginx_error_log.decoding]
+    codec = "json"
+
+[transforms.nginx_access_log_transform]
+type = "remap"
+inputs = [ "nginx_access_log" ]
+file = "/etc/vector/vrls/nginx_access_log.vrl"
+
+[transforms.transform_metrics_nginx_access_log]
+type = "log_to_metric"
+inputs = [ "nginx_access_log_transform" ]
+
+  [[transforms.transform_metrics_nginx_access_log.metrics]]
+  field = "status"
+  name = "status"
+  namespace = "log_metrics_nginx_access"
+  type = "counter"
+
+    [transforms.transform_metrics_nginx_access_log.metrics.tags]
+    status = "{{ '{{ status }}' }}"
+
+# output: nginx_access_log
+[sinks.nginx_access_log_output]
+type = "file"
+inputs = ["nginx_access_log_transform"]
+compression = "none"
+path = "/tmp/vector.nginx_access_log_output.log"
+
+  [sinks.nginx_access_log_output.encoding]
+  codec = "ndjson"
+
+# output: nginx_error_log
+[sinks.nginx_error_log_output]
+type = "file"
+inputs = ["nginx_error_log"]
+compression = "none"
+path = "/tmp/vector.nginx_error_log_output.log"
+
+  [sinks.nginx_error_log_output.encoding]
+  codec = "ndjson"
+
+############
+# journald #
+############
+[sources.journald_input]
+type = "journald"
+current_boot_only = true
+
+[transforms.journald_transform_init]
+type = "remap"
+inputs = [ "journald_input" ]
+file = "/etc/vector/vrls/journald_transform_init.vrl"
+
+[transforms.transform_metrics_journald]
+type = "log_to_metric"
+inputs = [ "journald_transform_init" ]
+
+  [[transforms.transform_metrics_journald.metrics]]
+  field = "priority"
+  name = "priority"
+  namespace = "log_metrics_journald"
+  type = "counter"
+
+    [transforms.transform_metrics_journald.metrics.tags]
+    priority = "{{ '{{ priority }}' }}"
+
+  [[transforms.transform_metrics_journald.metrics]]
+  field = "facility"
+  name = "facility"
+  namespace = "log_metrics_journald"
+  type = "counter"
+
+    [transforms.transform_metrics_journald.metrics.tags]
+    facility = "{{ '{{ facility }}' }}"
+
+  [[transforms.transform_metrics_journald.metrics]]
+  field = "identifier"
+  name = "identifier"
+  namespace = "log_metrics_journald"
+  type = "counter"
+
+    [transforms.transform_metrics_journald.metrics.tags]
+    identifier = "{{ '{{ identifier }}' }}"
+
+  [[transforms.transform_metrics_journald.metrics]]
+  field = "transport"
+  name = "transport"
+  namespace = "log_metrics_journald"
+  type = "counter"
+
+    [transforms.transform_metrics_journald.metrics.tags]
+    transport = "{{ '{{ transport }}' }}"
+
+[transforms.journald_transform_ip]
+type = "route"
+inputs = [ "journald_transform_init" ]
+
+  [transforms.journald_transform_ip.route]
+  ip = '.ip != null'
+  noip = '.ip == null'
+
+[transforms.journald_transform_geoip_city]
+type = "geoip"
+inputs = [ "journald_transform_ip.ip" ]
+database = "/var/lib/mmdb/GeoLite2-City.mmdb"
+source = "ip"
+target = "geoip_city"
+
+[transforms.journald_transform_geoip_asn]
+type = "geoip"
+inputs = [ "journald_transform_geoip_city" ]
+database = "/var/lib/mmdb/GeoLite2-ASN.mmdb"
+source = "ip"
+target = "geoip_asn"
+
+[transforms.journald_transform_geoip_post_process]
+type = "remap"
+inputs = [ "journald_transform_geoip_asn" ]
+file = "/etc/vector/vrls/journald_geoip_post_process.vrl"
+
+[transforms.journald_transform_sink_route]
+type = "route"
+inputs = [
+  "journald_transform_geoip_post_process",
+  "journald_transform_ip.noip",
+]
+  [transforms.journald_transform_sink_route.route]
+  ufw = '.route == "ufw"'
+  journald = '.route == "journald"'
+
+# output: journald
+[sinks.journald_output_journald]
+type = "file"
+inputs = ["journald_transform_sink_route.journald"]
+compression = "none"
+path = "/tmp/vector.journald_output_journald.log"
+
+  [sinks.journald_output_journald.encoding]
+  codec = "ndjson"
+  only_fields = [
+    "host",
+    "priority",
+    "facility",
+    "identifier",
+    "transport",
+    "port",
+    "ip",
+    "ip_net",
+    "ip_geo_autonomous_system_number",
+    "ip_geo_autonomous_system_organization",
+    "ip_geo_country",
+    "ip_geo_lat",
+    "ip_geo_lon",
+    "message",
+  ]
+
+# output: ufw
+[sinks.journald_output_ufw]
+type = "file"
+inputs = ["journald_transform_sink_route.ufw"]
+compression = "none"
+path = "/tmp/vector.journald_output_ufw.log"
+
+  [sinks.journald_output_ufw.encoding]
+  codec = "ndjson"
+  only_fields = [
+    "host",
+    "ip",
+    "ip_net",
+    "ip_geo_autonomous_system_number",
+    "ip_geo_autonomous_system_organization",
+    "ip_geo_country",
+    "ip_geo_lat",
+    "ip_geo_lon",
+    "sport",
+    "dport",
+    "proto",
+    "length",
+  ]

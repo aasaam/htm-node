@@ -1,0 +1,49 @@
+#!/bin/bash
+
+set -e
+
+fail2ban-client unban --all > /dev/null
+service fail2ban stop
+ufw --force disable > /dev/null
+ufw --force reset > /dev/null
+iptables -P INPUT ACCEPT
+iptables -P FORWARD ACCEPT
+iptables -P OUTPUT ACCEPT
+iptables -t nat -F
+iptables -t mangle -F
+iptables -F
+iptables -X
+
+ufw default deny incoming
+ufw default allow outgoing
+
+# node control port
+{% if node_id %}
+ufw allow 9199/tcp
+{% endif %}
+
+# ssh
+{% if internal_port %}
+ufw allow {{ internal_port }}/tcp
+{% else %}
+ufw allow {{ ansible_port }}/tcp
+{% endif %}
+
+# custom block ip/cidr
+UFW_BLOCK_FILE=/opt/htm-docker/var/ufw_block
+if test -f "$UFW_BLOCK_FILE"; then
+  while IFS= read -r SRC; do
+    ufw deny from $SRC to any
+  done < "$UFW_BLOCK_FILE"
+fi
+
+ufw allow 80/tcp
+ufw allow 443/tcp
+ufw logging low
+ufw --force enable
+
+service fail2ban start
+sleep 2
+fail2ban-client unban --all > /dev/null
+
+rm -rf /etc/ufw/*.rules.20*

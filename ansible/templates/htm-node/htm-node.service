@@ -1,0 +1,14 @@
+[Unit]
+Description="HTM Node"
+After=syslog.target
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/htm-docker
+ExecStart=/usr/local/bin/htm-node run --id "{{ node_id }}" --token "{{ node_token }}" --tls-version "{{ node_tls_version }}" --management-ips "{{ config_management_ips | join(',') }}" --log-level "{{ config_node_log_level }}"
+
+[Install]
+WantedBy=multi-user.target

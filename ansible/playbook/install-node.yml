@@ -1,0 +1,83 @@
+---
+- hosts: all
+  tasks:
+
+    - name: Create /opt/htm-docker/var
+      shell: |
+        mkdir -p /opt/htm-docker/var
+        mkdir -p /opt/htm-docker/log
+        mkdir -p /opt/htm-docker/backup
+        chmod 777 /opt/htm-docker/log
+        touch /opt/htm-docker/.env.0.configure
+        printf "{{ config_web_server_monitoring_user }}:$(openssl passwd -apr1 {{ config_web_server_monitoring_pass }})\n" > /opt/htm-docker/var/monitoring.htpasswd
+        mkdir -p /var/lib/htm-images
+
+    - name: Upload dhparam.pem
+      copy:
+        src: ../files/downloads/dhparam.pem
+        dest: /opt/htm-docker/var/dhparam.pem
+
+    - name: Upload images
+      copy:
+        src: ../files/downloads/{{ item }}
+        dest: /var/lib/htm-images/{{ item }}
+      with_items:
+        - aasaam-nginx_error_log_parser.tgz
+        - aasaam-nginx_protection.tgz
+        - aasaam-rest_captcha.tgz
+        - aasaam-web_server.tgz
+
+    - name: Load images
+      shell: docker load -i /var/lib/htm-images/{{ item }}
+      with_items:
+        - aasaam-nginx_error_log_parser.tgz
+        - aasaam-nginx_protection.tgz
+        - aasaam-rest_captcha.tgz
+        - aasaam-web_server.tgz
+
+    - name: Set htm-addon-backup
+      template:
+        src: ../templates/htm-node/htm-addon-backup.sh
+        dest: /usr/local/bin/htm-addon-backup
+        mode: 0700
+
+    - name: Setup htm-addon-backup cron
+      cron:
+        name: "htm-addon-backup"
+        minute: "0"
+        hour: "9"
+        job: "/usr/local/bin/htm-addon-backup"
+
+    - name: Set vector.toml
+      template:
+        src: ../templates/htm-node/.env.1.ansible
+        dest: /opt/htm-docker/.env.1.ansible
+
+    - name: Upload docker files
+      copy:
+        src: ../files/htm-docker/{{ item }}
+        dest: /opt/htm-docker/{{ item }}
+      with_items:
+        - docker-compose.yml
+
+    - name: Upload sample addon
+      copy:
+        src: ../files/htm-docker/addon
+        dest: /opt/htm-docker/
+
+    - name: Node agent binary
+      unarchive:
+        src: ../files/downloads/htm-node.tgz
+        dest: /usr/local/bin/
+
+    - name: Update htm-node.service
+      template:
+        src: ../templates/htm-node/htm-node.service
+        dest: /lib/systemd/system/htm-node.service
+
+    - name: Ready environment variable file for node
+      shell: |
+        cat /opt/htm-docker/.env.0.configure /opt/htm-docker/.env.1.ansible > /opt/htm-docker/.env.2.ready
+        systemctl daemon-reload
+        systemctl enable htm-node.service
+        systemctl restart htm-node.service

@@ -1,0 +1,5 @@
+[Resolve]
+DNS={{ config_dns_servers | join(",") }}
+{% if config_fallback_dns_servers %}
+FallbackDNS={{ config_fallback_dns_servers | join(",") }}
+{% endif %}

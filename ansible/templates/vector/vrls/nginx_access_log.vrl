@@ -1,0 +1,119 @@
+# integers
+status, err = to_int(.status)
+if err == null {
+  .status = status
+} else {
+  .status = 0
+}
+
+bytes_sent, err = to_int(.bytes_sent)
+if err == null {
+  .bytes_sent = bytes_sent
+} else {
+  .bytes_sent = null
+}
+
+body_bytes_sent, err = to_int(.body_bytes_sent)
+if err == null {
+  .body_bytes_sent = body_bytes_sent
+} else {
+  .body_bytes_sent = null
+}
+
+content_length, err = to_int(.content_length)
+if err == null {
+  .content_length = content_length
+} else {
+  .content_length = null
+}
+
+upstream_bytes_received, err = to_int(.upstream_bytes_received)
+if err == null {
+  .upstream_bytes_received = upstream_bytes_received
+} else {
+  .upstream_bytes_received = null
+}
+
+upstream_bytes_sent, err = to_int(.upstream_bytes_sent)
+if err == null {
+  .upstream_bytes_sent = upstream_bytes_sent
+} else {
+  .upstream_bytes_sent = null
+}
+
+ps_org_content_length, err = to_int(.ps_org_content_length)
+if err == null {
+  .ps_org_content_length = ps_org_content_length
+} else {
+  .ps_org_content_length = null
+}
+
+request_length, err = to_int(.request_length)
+if err == null {
+  .request_length = request_length
+} else {
+  .request_length = null
+}
+
+waf_mode, err = to_int(.waf_mode)
+if err == null {
+  .waf_mode = waf_mode
+} else {
+  .waf_mode = null
+}
+
+request_time, err = to_float(.request_time)
+if err == null {
+  .request_time = request_time
+} else {
+  .request_time = null
+}
+
+upstream_connect_time, err = to_float(.upstream_connect_time)
+if err == null {
+  .upstream_connect_time = upstream_connect_time
+} else {
+  .upstream_connect_time = null
+}
+
+brotli_ratio, err = to_float(.brotli_ratio)
+if err == null {
+  .brotli_ratio = brotli_ratio
+} else {
+  .brotli_ratio = null
+}
+
+gzip_ratio, err = to_float(.gzip_ratio)
+if err == null {
+  .gzip_ratio = gzip_ratio
+} else {
+  .gzip_ratio = null
+}
+
+.compression = "n"
+if is_float(.brotli_ratio) {
+  .compression = "br"
+} else if is_float(.gzip_ratio) {
+  .compression = "gz"
+}
+
+ps_active_length, err = length(.ps_active)
+if err == null && ps_active_length >= 1 {
+  .ps_active = true
+} else {
+  .ps_active = false
+}
+
+client_new_length, err = length(.client_new)
+if err == null && client_new_length >= 1 {
+  .client_new = true
+} else {
+  .client_new = false
+}
+
+protection_enable_length, err = length(.protection_enable)
+if err == null && protection_enable_length >= 1 {
+  .protection_enable = true
+} else {
+  .protection_enable = false
+}
