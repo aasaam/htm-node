@@ -17,7 +17,7 @@ infrastructure_url: https://aasaam.com
 infrastructure_email: postmaster@aasaam.com
 infrastructure_tel: '+982191008212'
 infrastructure_emoji: 🚦
-infrastructure_title: aasaam HTM
+infrastructure_title: aasaam HTTP Traffic Manager
 infrastructure_ns: aasaam-htm
 infrastructure_domain: localhost
 
