@@ -1,7 +1,6 @@
 package main
 
 import (
-	"net"
 	"time"
 
 	cpu "github.com/klauspost/cpuid/v2"
@@ -55,23 +54,10 @@ type nodeInfo struct {
 	ImageNginxErrorLogParser dockerImage `json:"image_nginx_error_log_parser"`
 }
 
-var privateIPNets []*net.IPNet
-
 var cpuInfoValue cpuInfo
 var totalMemory uint64
 
 func init() {
-	for _, cidr := range []string{
-		"127.0.0.0/8",    // IPv4 loopback
-		"10.0.0.0/8",     // RFC1918
-		"172.16.0.0/12",  // RFC1918
-		"192.168.0.0/16", // RFC1918
-		"169.254.0.0/16", // RFC3927 link-local
-	} {
-		_, block, _ := net.ParseCIDR(cidr)
-		privateIPNets = append(privateIPNets, block)
-	}
-
 	cpuInfoValue = cpuInfo{
 		BrandName:      cpu.CPU.BrandName,
 		Family:         cpu.CPU.Family,

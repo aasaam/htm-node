@@ -1,16 +1,23 @@
 package main
 
 import (
+	"bytes"
+	"errors"
 	"os/exec"
 	"strings"
 )
 
 func execute(command string, arg ...string) ([]byte, error) {
-	out, err := exec.Command(command, arg...).Output()
+	cmd := exec.Command(command, arg...)
+	var stdOut bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdOut
+	cmd.Stderr = &stderr
+	err := cmd.Run()
 	if err != nil {
-		return nil, err
+		return nil, errors.New(err.Error() + ": " + stderr.String())
 	}
-	return out, nil
+	return stdOut.Bytes(), nil
 }
 
 func executeString(command string, arg ...string) (string, error) {

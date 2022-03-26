@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"strings"
 
@@ -28,7 +27,7 @@ func successResponseInterface(c *fiber.Ctx, data interface{}) error {
 }
 
 func healthCheck() (bool, string) {
-	out1, err1 := execute("docker", "inspect", "aasaam-web-server", "--format", "'{{.State.Running}}'")
+	out1, err1 := execute("docker", "inspect", "aasaam-web-server", "--format", "{{.State.Running}}")
 	if err1 != nil {
 		return false, "Web server container not found"
 	}
@@ -38,9 +37,9 @@ func healthCheck() (bool, string) {
 		return false, "Web server container not running"
 	}
 
-	out3, err3 := execute("docker", "exec", "-it", "aasaam-web-server", "openresty", "-t")
+	out3, err3 := execute("docker", "exec", "-t", "aasaam-web-server", "openresty", "-t")
 	if err3 != nil {
-		return false, string(out3)
+		return false, string(err3.Error())
 	}
 
 	return true, string(out3)
@@ -98,7 +97,7 @@ func newHTTPServer(config *nodeConfig) *fiber.App {
 		return c.JSON("pong")
 	})
 
-	app.Get("/heath", func(c *fiber.Ctx) error {
+	app.Get("/health", func(c *fiber.Ctx) error {
 		healthy, message := healthCheck()
 		if !healthy {
 			return errorResponse(c, message, 500)
@@ -145,7 +144,6 @@ func newHTTPServer(config *nodeConfig) *fiber.App {
 		}
 
 		var imageWebServer dockerImage
-		fmt.Println(string(out3))
 		err7 := json.Unmarshal(out3, &imageWebServer)
 		if err7 != nil {
 			return errorResponse(c, "invalid image data for 'web-server'", 500)
@@ -201,17 +199,17 @@ func newHTTPServer(config *nodeConfig) *fiber.App {
 
 		err2 := ioutil.WriteFile(config.dockerPath+"/var/ufw_block", []byte(strings.Join(result, "\n")), 0644)
 		if err2 != nil {
-			return errorResponse(c, "failed to write to file:"+err2.Error(), 500)
+			return errorResponse(c, "failed to write to file: "+err2.Error(), 500)
 		}
 
 		_, err3 := execute("/usr/local/bin/firewall")
 		if err3 != nil {
-			return errorResponse(c, "failed to run firewall:"+err3.Error(), 500)
+			return errorResponse(c, "failed to run firewall: "+err3.Error(), 500)
 		}
 
 		out, err4 := execute("ufw", "status", "numbered")
 		if err4 != nil {
-			return errorResponse(c, "failed to check ufw status:"+err4.Error(), 500)
+			return errorResponse(c, "failed to check ufw status: "+err4.Error(), 500)
 		}
 
 		return successResponse(c, string(out))
