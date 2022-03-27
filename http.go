@@ -42,11 +42,12 @@ func healthCheck() (bool, string) {
 		return false, string(err3.Error())
 	}
 
-	return true, string(out3)
+	return true, "htm-node: healthy\n" + normalizeStd(out3)
 }
 
 func newHTTPServer(config *nodeConfig) *fiber.App {
 	app := fiber.New(fiber.Config{
+
 		DisableStartupMessage: true,
 		Prefork:               false,
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
@@ -230,6 +231,7 @@ func newHTTPServer(config *nodeConfig) *fiber.App {
 	})
 
 	app.Post("/update", func(c *fiber.Ctx) error {
+
 		file, err1 := c.FormFile("addon.tgz")
 
 		if err1 != nil {
@@ -241,6 +243,8 @@ func newHTTPServer(config *nodeConfig) *fiber.App {
 		if err2 != nil {
 			return errorResponse(c, "cannot save 'addon.tgz': "+err2.Error(), 400)
 		}
+
+		executeMany("/usr/local/bin/htm-addon-backup")
 
 		err3 := executeMany(
 			"cd "+config.dockerPath,

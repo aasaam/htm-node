@@ -1,0 +1,19 @@
+{
+  "CN": "aasaam HTTP Traffic Manager intermediate ca",
+  "ca": {
+    "expiry": "175100h"
+  },
+  "key": {
+    "algo": "ecdsa",
+    "size": 384
+  },
+  "names": [
+    {
+      "C": "IR",
+      "L": "Tehran",
+      "ST": "Tehran",
+      "OU": "aasaam DevOps Team",
+      "O": "Dadeh Pardazan Ati Prozheh"
+    }
+  ]
+}

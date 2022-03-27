@@ -6,6 +6,7 @@
       shell: |
         mkdir -p /opt/htm-docker/var
         mkdir -p /opt/htm-docker/log
+        mkdir -p /opt/htm-docker/cert
         mkdir -p /opt/htm-docker/backup
         chmod 777 /opt/htm-docker/log
         touch /opt/htm-docker/.env.0.configure
@@ -16,6 +17,16 @@
       copy:
         src: ../files/downloads/dhparam.pem
         dest: /opt/htm-docker/var/dhparam.pem
+
+    - name: Upload cert
+      copy:
+        src: ../cert/{{ item }}
+        dest: /opt/htm-docker/cert/{{ item }}
+      with_items:
+        - fullchain.pem
+        - chain.pem
+        - privkey.pem
+        - cert.pem
 
     - name: Upload images
       copy:

@@ -1,0 +1,17 @@
+{
+  "CN": "aasaam HTTP Traffic Manager server certificate",
+  "hosts": [],
+  "key": {
+    "algo": "ecdsa",
+    "size": 256
+  },
+  "names": [
+    {
+      "C": "IR",
+      "L": "Tehran",
+      "ST": "Tehran",
+      "OU": "aasaam DevOps Team",
+      "O": "Dadeh Pardazan Ati Prozheh"
+    }
+  ]
+}

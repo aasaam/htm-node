@@ -96,7 +96,7 @@ services:
       - ./addon:/usr/local/openresty/nginx/addon:ro
       - ./var/monitoring.htpasswd:/usr/local/openresty/htpasswd/monitoring.htpasswd:ro
       # - ./config/defaults:/usr/local/openresty/nginx/defaults
-      # - ./var/dhparam.pem:/usr/local/openresty/nginx/defaults/selfsigned/dhparam.pem:ro
+      - ./var/dhparam.pem:/usr/local/openresty/nginx/defaults/selfsigned/dhparam.pem:ro
       - ./log:/log
     tmpfs:
       - /cache:rw,nodev,nosuid,noexec,noatime,size=${ASM_CACHE_SIZE_MB:-1024}m

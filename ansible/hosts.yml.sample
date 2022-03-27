@@ -4,8 +4,7 @@
     hosts:
 
       htm-node-0:
-        # mongodb object id
-        node_id: aaaaaaaaaaaaaaaaaaaaaaaa
+        node_id: 192-168-1-2
         node_tls_version: intermediate
         # pwgen -n 48
         node_token: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa

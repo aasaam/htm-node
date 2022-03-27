@@ -32,7 +32,11 @@ func runServer(c *cli.Context) error {
 	}
 
 	app := newHTTPServer(&cnf)
-	return app.Listen("0.0.0.0:" + strconv.Itoa(int(cnf.port)))
+	return app.ListenTLS(
+		"0.0.0.0:"+strconv.Itoa(int(cnf.port)),
+		cnf.dockerPath+"/cert/fullchain.pem",
+		cnf.dockerPath+"/cert/privkey.pem",
+	)
 }
 
 func main() {
