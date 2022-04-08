@@ -3,7 +3,8 @@ module github.com/aasaam/htm-node
 go 1.17
 
 require (
-	github.com/gofiber/fiber/v2 v2.30.0
+	github.com/gofiber/fiber/v2 v2.31.0
+	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/klauspost/cpuid/v2 v2.0.12
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58
 	github.com/rs/zerolog v1.26.1

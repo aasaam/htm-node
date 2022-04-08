@@ -30,5 +30,13 @@ func executeString(command string, arg ...string) (string, error) {
 
 func executeMany(arg ...string) error {
 	cmd := exec.Command("/bin/sh", "-c", strings.Join(arg, " && "))
-	return cmd.Run()
+	var stdOut bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdOut
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err != nil {
+		return errors.New(err.Error() + ": " + stderr.String())
+	}
+	return nil
 }

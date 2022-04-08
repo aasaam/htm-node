@@ -2,9 +2,12 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
+	"os"
 	"strings"
 
+	"github.com/golang-jwt/jwt"
 	memory "github.com/pbnjay/memory"
 
 	"github.com/gofiber/fiber/v2"
@@ -47,7 +50,7 @@ func healthCheck() (bool, string) {
 
 func newHTTPServer(config *nodeConfig) *fiber.App {
 	app := fiber.New(fiber.Config{
-
+		BodyLimit:             1024 * 1024 * 64,
 		DisableStartupMessage: true,
 		Prefork:               false,
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
@@ -61,7 +64,7 @@ func newHTTPServer(config *nodeConfig) *fiber.App {
 				Str("error", err.Error()).
 				Str("ip", c.IP()).
 				Str("method", c.Method()).
-				Str("url", c.Request().URI().String()).
+				Str("url", c.Path()).
 				Int("status_code", code).
 				Send()
 
@@ -73,25 +76,42 @@ func newHTTPServer(config *nodeConfig) *fiber.App {
 
 	// middle ware
 	app.Use(func(c *fiber.Ctx) error {
-		token := c.Get(tokenHeader, "")
-		if token != config.token {
+		tokenString := c.Get(tokenHeader, "")
+		token, tokenErr := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			// Don't forget to validate the alg is what you expect:
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			}
+			return []byte(config.token), nil
+		})
+
+		validationError := "invalid token"
+
+		if tokenErr != nil {
+			validationError = tokenErr.Error()
+		}
+
+		claim, validationOK := token.Claims.(jwt.MapClaims)
+
+		if validationOK && token.Valid {
 			defer config.getLogger().
-				Error().
+				Info().
 				Str("ip", c.IP()).
 				Str("method", c.Method()).
-				Str("url", c.Request().URI().String()).
-				Msg("Forbidden")
-			return errorResponse(c, "Forbidden", 403)
+				Str("url", c.Path()).
+				Msg("Access granted")
+			fmt.Println(claim)
+			return c.Next()
 		}
 
 		defer config.getLogger().
-			Info().
+			Error().
 			Str("ip", c.IP()).
+			Str("error", validationError).
 			Str("method", c.Method()).
-			Str("url", c.Request().URI().String()).
-			Msg("Access granted")
-
-		return c.Next()
+			Str("url", c.Path()).
+			Msg("Forbidden")
+		return errorResponse(c, "Forbidden: "+validationError, 403)
 	})
 
 	app.Get("/ping", func(c *fiber.Ctx) error {
@@ -99,12 +119,12 @@ func newHTTPServer(config *nodeConfig) *fiber.App {
 	})
 
 	app.Get("/health", func(c *fiber.Ctx) error {
-		healthy, message := healthCheck()
-		if !healthy {
-			return errorResponse(c, message, 500)
+		isHealthy, isHealthyMessage := healthCheck()
+		if !isHealthy {
+			return errorResponse(c, isHealthyMessage, 500)
 		}
 
-		return successResponse(c, message)
+		return c.JSON(isHealthyMessage)
 	})
 
 	app.Get("/info", func(c *fiber.Ctx) error {
@@ -117,59 +137,55 @@ func newHTTPServer(config *nodeConfig) *fiber.App {
 			Memory: memoryInfoValue,
 		}
 
-		out1, err1 := executeString("uname", "-r")
-		out2, err2 := executeString("lsb_release", "-sd")
-		out3, err3 := execute("docker", "image", "inspect", "ghcr.io/aasaam/web-server:latest", "--format", "{{json .}}")
-		out4, err4 := execute("docker", "image", "inspect", "ghcr.io/aasaam/nginx-protection:latest", "--format", "{{json .}}")
-		out5, err5 := execute("docker", "image", "inspect", "ghcr.io/aasaam/rest-captcha:latest", "--format", "{{json .}}")
-		out6, err6 := execute("docker", "image", "inspect", "ghcr.io/aasaam/nginx-error-log-parser:latest", "--format", "{{json .}}")
-
-		if err1 != nil || err2 != nil {
+		uname, unameErr := executeString("uname", "-r")
+		lsb, lsbErr := executeString("lsb_release", "-sd")
+		if unameErr != nil || lsbErr != nil {
 			return errorResponse(c, "cannot get os information", 500)
 		}
 
-		if err3 != nil {
+		diWebServer, diWebServerErr := execute("docker", "image", "inspect", "ghcr.io/aasaam/web-server:latest", "--format", "{{json .}}")
+		if diWebServerErr != nil {
 			return errorResponse(c, "cannot image 'web-server' information", 500)
 		}
-
-		if err4 != nil {
-			return errorResponse(c, "cannot image 'nginx-protection' information", 500)
-		}
-
-		if err5 != nil {
-			return errorResponse(c, "cannot image 'rest-captcha' information", 500)
-		}
-
-		if err6 != nil {
-			return errorResponse(c, "cannot image 'nginx-error-log-parser' information", 500)
-		}
-
 		var imageWebServer dockerImage
-		err7 := json.Unmarshal(out3, &imageWebServer)
-		if err7 != nil {
+		diWebServerJSONErr := json.Unmarshal(diWebServer, &imageWebServer)
+		if diWebServerJSONErr != nil {
 			return errorResponse(c, "invalid image data for 'web-server'", 500)
 		}
 
+		nginxProtection, nginxProtectionErr := execute("docker", "image", "inspect", "ghcr.io/aasaam/nginx-protection:latest", "--format", "{{json .}}")
+		if nginxProtectionErr != nil {
+			return errorResponse(c, "cannot image 'nginx-protection' information", 500)
+		}
 		var imageNginxProtection dockerImage
-		err8 := json.Unmarshal(out4, &imageNginxProtection)
-		if err8 != nil {
+		nginxProtectionJSONErr := json.Unmarshal(nginxProtection, &imageNginxProtection)
+		if nginxProtectionJSONErr != nil {
 			return errorResponse(c, "invalid image data for 'nginx-protection'", 500)
 		}
 
+		restCaptcha, restCaptchaErr := execute("docker", "image", "inspect", "ghcr.io/aasaam/rest-captcha:latest", "--format", "{{json .}}")
+		if restCaptchaErr != nil {
+			return errorResponse(c, "cannot image 'rest-captcha' information", 500)
+		}
 		var imageRESTCaptcha dockerImage
-		err9 := json.Unmarshal(out5, &imageRESTCaptcha)
-		if err9 != nil {
+		restCaptchaJSONErr := json.Unmarshal(restCaptcha, &imageRESTCaptcha)
+		if restCaptchaJSONErr != nil {
 			return errorResponse(c, "invalid image data for 'rest-captcha'", 500)
 		}
 
+		nginxErrorLogParser, nginxErrorLogParserErr := execute("docker", "image", "inspect", "ghcr.io/aasaam/nginx-error-log-parser:latest", "--format", "{{json .}}")
+		if nginxErrorLogParserErr != nil {
+			return errorResponse(c, "cannot image 'nginx-error-log-parser' information", 500)
+		}
+
 		var imageNginxErrorLogParser dockerImage
-		err10 := json.Unmarshal(out6, &imageNginxErrorLogParser)
-		if err10 != nil {
+		nginxErrorLogParserJSONErr := json.Unmarshal(nginxErrorLogParser, &imageNginxErrorLogParser)
+		if nginxErrorLogParserJSONErr != nil {
 			return errorResponse(c, "invalid image data for 'nginx-error-log-parser'", 500)
 		}
 
-		info.Kernel = out1
-		info.Distribution = out2
+		info.Kernel = uname
+		info.Distribution = lsb
 		info.ImageWebServer = imageWebServer
 		info.ImageNginxProtection = imageNginxProtection
 		info.ImageRESTCaptcha = imageRESTCaptcha
@@ -180,7 +196,7 @@ func newHTTPServer(config *nodeConfig) *fiber.App {
 
 	app.Post("/firewall", func(c *fiber.Ctx) error {
 		var firewallRequest firewallRequest
-		if err1 := c.BodyParser(firewallRequest); err1 != nil {
+		if jsonError := c.BodyParser(firewallRequest); jsonError != nil {
 			return errorResponse(c, "invalid firewall data", 422)
 		}
 
@@ -198,55 +214,68 @@ func newHTTPServer(config *nodeConfig) *fiber.App {
 			}
 		}
 
-		err2 := ioutil.WriteFile(config.dockerPath+"/var/ufw_block", []byte(strings.Join(result, "\n")), 0644)
-		if err2 != nil {
-			return errorResponse(c, "failed to write to file: "+err2.Error(), 500)
+		writeFileErr := ioutil.WriteFile(config.dockerPath+"/var/ufw_block", []byte(strings.Join(result, "\n")), 0644)
+		if writeFileErr != nil {
+			return errorResponse(c, "failed to write to file: "+writeFileErr.Error(), 500)
 		}
 
-		_, err3 := execute("/usr/local/bin/firewall")
-		if err3 != nil {
-			return errorResponse(c, "failed to run firewall: "+err3.Error(), 500)
+		_, runFireWallErr := execute("/usr/local/bin/firewall")
+		if runFireWallErr != nil {
+			return errorResponse(c, "failed to run firewall: "+runFireWallErr.Error(), 500)
 		}
 
-		out, err4 := execute("ufw", "status", "numbered")
-		if err4 != nil {
-			return errorResponse(c, "failed to check ufw status: "+err4.Error(), 500)
+		ufw, ufwErr := execute("ufw", "status", "numbered")
+		if ufwErr != nil {
+			return errorResponse(c, "failed to check ufw status: "+ufwErr.Error(), 500)
 		}
 
-		return successResponse(c, string(out))
+		return successResponse(c, string(ufw))
 	})
 
 	app.Post("/restart", func(c *fiber.Ctx) error {
-		err1 := executeMany("cd "+config.dockerPath, "docker-compose up -d")
-		if err1 != nil {
-			return errorResponse(c, err1.Error(), 500)
+		cwd, cwdErr := os.Getwd()
+		if cwdErr != nil {
+			return errorResponse(c, cwdErr.Error(), 500)
 		}
 
-		healthy2, message2 := healthCheck()
-		if !healthy2 {
-			return errorResponse(c, message2, 500)
+		if cwd != config.dockerPath {
+			return errorResponse(c, "cwd not set to config", 500)
 		}
 
-		return c.JSON(message2)
+		_, composeDownErr := execute("docker-compose", "down")
+		if composeDownErr != nil {
+			return errorResponse(c, composeDownErr.Error(), 500)
+		}
+
+		_, composeUpErr := execute("docker-compose", "up", "-d")
+		if composeUpErr != nil {
+			return errorResponse(c, composeUpErr.Error(), 500)
+		}
+
+		isHealthy, isHealthyMessage := healthCheck()
+		if !isHealthy {
+			return errorResponse(c, isHealthyMessage, 500)
+		}
+
+		return c.JSON(isHealthyMessage)
 	})
 
 	app.Post("/update", func(c *fiber.Ctx) error {
+		file, fileErr := c.FormFile("addon.tgz")
 
-		file, err1 := c.FormFile("addon.tgz")
-
-		if err1 != nil {
-			return errorResponse(c, "file 'addon.tgz' not present: "+err1.Error(), 400)
+		if fileErr != nil {
+			return errorResponse(c, "file 'addon.tgz' not present: "+fileErr.Error(), fiber.StatusFailedDependency)
 		}
 
 		executeMany("rm -rf /tmp/addon.tgz")
-		err2 := c.SaveFile(file, "/tmp/addon.tgz")
-		if err2 != nil {
-			return errorResponse(c, "cannot save 'addon.tgz': "+err2.Error(), 400)
+		saveErr := c.SaveFile(file, "/tmp/addon.tgz")
+		if saveErr != nil {
+			return errorResponse(c, "cannot save 'addon.tgz': "+saveErr.Error(), fiber.StatusLoopDetected)
 		}
 
 		executeMany("/usr/local/bin/htm-addon-backup")
 
-		err3 := executeMany(
+		extractErr := executeMany(
 			"cd "+config.dockerPath,
 			"cp /tmp/addon.tgz ./addon.tgz",
 			"rm -rf addon/",
@@ -254,16 +283,16 @@ func newHTTPServer(config *nodeConfig) *fiber.App {
 			"rm -rf addon.tgz",
 		)
 
-		if err3 != nil {
-			return errorResponse(c, "cannot extract 'addon.tgz': "+err3.Error(), 500)
+		if extractErr != nil {
+			return errorResponse(c, "cannot extract 'addon.tgz': "+extractErr.Error(), fiber.StatusInternalServerError)
 		}
 
-		healthy, message := healthCheck()
-		if !healthy {
-			return errorResponse(c, message, 500)
+		isHealthy, isHealthyMessage := healthCheck()
+		if !isHealthy {
+			return errorResponse(c, isHealthyMessage, 500)
 		}
 
-		return successResponse(c, message)
+		return c.JSON(isHealthyMessage)
 	})
 
 	return app
