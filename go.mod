@@ -8,7 +8,7 @@ require (
 	github.com/klauspost/cpuid/v2 v2.0.12
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58
 	github.com/rs/zerolog v1.26.1
-	github.com/urfave/cli/v2 v2.5.0
+	github.com/urfave/cli/v2 v2.5.1
 )
 
 require (
