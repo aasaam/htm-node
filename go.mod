@@ -7,7 +7,7 @@ require (
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/klauspost/cpuid/v2 v2.0.12
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58
-	github.com/rs/zerolog v1.26.1
+	github.com/rs/zerolog v1.27.0
 	github.com/urfave/cli/v2 v2.6.0
 )
 
@@ -15,6 +15,8 @@ require (
 	github.com/andybalholm/brotli v1.0.4 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.1 // indirect
 	github.com/klauspost/compress v1.15.0 // indirect
+	github.com/mattn/go-colorable v0.1.12 // indirect
+	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.35.0 // indirect
